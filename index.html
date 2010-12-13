@@ -1,0 +1,46 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        <title>WordPress Ajax XM-RPC client</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <script src="Ajax.js" type="text/javascript"></script>
+        <script src="log4js.js" type="text/javascript">
+        </script>
+        <script src="Utils.js" type="text/javascript">
+        </script>
+        <script src="xmlrpc-client.js" type="text/javascript">
+        </script>
+        <script src="XmlRpcConnections.js" type="text/javascript">
+        </script>
+    </head>
+    <body>
+        <h1>New Web Project Page</h1>
+        <script>
+            
+		//init the log sys - we are using http://log4js.berlios.de/	
+		EW.LogSystem.init(); //you can open the console by pressing ALT + D (in Firefox > 2.0 press SHIFT+ALT+D) 
+			
+        function AddBlogsListener(){            
+        }
+        AddBlogsListener.prototype.connRequestError = function(errorMsg){
+            EW.LogSystem.error("AddBlogsListener.connRequestError");
+        }
+        AddBlogsListener.prototype.connRequestStopped = function(){
+            EW.LogSystem.debug("AddBlogsListener.connRequestStopped");
+        }
+        
+        AddBlogsListener.prototype.connRequestCompleted = function(userBlogs){
+            EW.LogSystem.debug("AddBlogsListener.connRequestCompleted");
+        }
+            try {
+                var connection = new AddBlogConn("editore" , "cancello", "http://localhost/wp_mopress/xmlrpc.php");
+                connection.addListener(new AddBlogsListener());
+                connection.startConn();
+            } 
+            catch (error_obj) {
+				 EW.LogSystem.error("showErrorDialog: "+error_obj.name + "--" + error_obj.message);
+				 alert("showErrorDialog: "+error_obj.name + "--" + error_obj.message);	
+            }
+        </script>
+    </body>
+</html>
