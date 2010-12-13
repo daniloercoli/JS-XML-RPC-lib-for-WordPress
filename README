@@ -1,0 +1,37 @@
+WordPress XML-RPC Library that communicates with XMLHttpRequest requests. 
+Both the arguments passed and the return variable are processed as JavaScript objects.
+
+The following WordPress XMLRPC methods (http://codex.wordpress.org/XML-RPC_wp) are available within the lib
+
+wp.getUsersBlogs
+wp.getCommentCount
+wp.deleteComment
+wp.editComment
+wp.newComment
+wp.getCommentStatusList
+wp.getComment
+wp.getComments
+wp.getPage
+wp.getOptions
+metaWeblog.newPost
+
+
+How to use it:
+
+var connection = new AddBlogConn("username" , "password", "xmlrpc endpoint URL");
+connection.addListener(new AddBlogsListener());
+connection.startConn();
+
+The Listener should implement at least these three methods:
+function AddBlogsListener(){
+}
+AddBlogsListener.prototype.connRequestError = function(errorMsg){
+EW.LogSystem.error("AddBlogsListener.connRequestError");
+}
+AddBlogsListener.prototype.connRequestStopped = function(){
+EW.LogSystem.debug("AddBlogsListener.connRequestStopped");
+}
+
+AddBlogsListener.prototype.connRequestCompleted = function(userBlogs){
+EW.LogSystem.debug("AddBlogsListener.connRequestCompleted");
+}
