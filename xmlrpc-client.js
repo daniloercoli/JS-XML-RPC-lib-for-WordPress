@@ -1,13 +1,14 @@
 /*
-*  XML-RPC Client
+*  XML-RPC Client is lightly based on mimic xmlrpc lib
 *  Author: Danilo Ercoli - ercoli@gmail.com - dercoli@danais.it
+* 	
+* 
+*   Mimic (XML-RPC Client for JavaScript) v2.0.1 
+*	Copyright (C) 2005-2009 Carlos Eduardo Goncalves (cadu.goncalves@gmail.com)
+*	Mimic is dual licensed under the MIT (http://opensource.org/licenses/mit-license.php) 
+* 	and GPLv3 (http://opensource.org/licenses/gpl-3.0.html) licenses.
 */
 
-/* trick the IDE */
-if(typeof ($)=="undefined") {
-	$ = {};
-	jQuery = {};
-}
 
 /** 
  * XmlRpc
@@ -203,32 +204,55 @@ XmlRpcRequest.prototype.successCallback = function(xmlhttp) {
 	if(xmlhttp.status == 0) {
 		EW.LogSystem.debug("XmlRpcRequest.prototype.successCallback - No response from server");
 		for(var i = 0; i < this.listeners.length; i++) {
-			this.listeners[i].errorCallback("0", "No response from server"); //ai listener arriva un oggetto JS
+		 	try	{
+		 		this.listeners[i].errorCallback("0", "No response from server"); //ai listener arriva un oggetto JS
+			} catch(e) {
+				EW.LogSystem.error(e.message);
+			}
+    	}	
+		return;
+	} else if(xmlhttp.status == 200) {
+		var resp = new XmlRpcResponse(xmlhttp.responseText);
+		var respoObj = resp.parseXML();
+		EW.LogSystem.debug(respoObj);
+		//EW.LogSystem.debug("Response JS: " +respoObj.toSource()); 
+		
+		//se si è verificato un errore nello strato xmlrpc (errore riportato dal server WP)
+		if(resp.isFault()) {
+			EW.LogSystem.error("XmlRpcRequest.prototype.successCallback - XMLRPC Error");
+			var faultCode = respoObj.faultCode;
+			var faultString = respoObj.faultString;
+			for(var i = 0; i < this.listeners.length; i++) {
+			 	try {
+			 		this.listeners[i].errorCallback(faultCode, faultString); //ai listener arriva un oggetto JS
+				} catch(e) {
+					EW.LogSystem.error(e.message);
+				}
+	    	}	
+			return;
+		} 
+		
+		//notifico i listener della risposta della connessione
+		for(var i = 0; i < this.listeners.length; i++) {
+		 	try	{
+		 		this.listeners[i].successCallback(resp, respoObj);
+			} catch(e) {
+				EW.LogSystem.error(e.message);
+			}
+	    }	
+	
+	} else {
+		EW.LogSystem.debug("XmlRpcRequest.prototype.successCallback - Something went wrong");
+		for(var i = 0; i < this.listeners.length; i++) {
+		 	try	{
+				this.listeners[i].errorCallback(xmlhttp.status, "Something went wrong");
+			} catch(e) {
+				EW.LogSystem.error(e.message);
+			}
     	}	
 		return;
 	}
- 
-	var resp = new XmlRpcResponse(xmlhttp.responseXML);
-	var respoObj = resp.parseXML();
-	
-	EW.LogSystem.debug("Response JS: " +respoObj.toSource()); 
-	
-	//se si è verificato un errore nello strato xmlrpc (errore riportato dal server WP)
-	if(resp.isFault()) {
-		EW.LogSystem.error("XmlRpcRequest.prototype.successCallback - XMLRPC Error");
-		var faultCode = respoObj.faultCode;
-		var faultString = respoObj.faultString;
-		for(var i = 0; i < this.listeners.length; i++) {
-			this.listeners[i].errorCallback(faultCode, faultString); //ai listener arriva un oggetto JS
-    	}	
-		return;
-	} 
-	
-	//notifico i listener della risposta della connessione
-	for(var i = 0; i < this.listeners.length; i++) {
-		this.listeners[i].successCallback(resp, respoObj);
-    }	
-}
+};
 
 /**
  * A function to be called if a Network Error occurs
@@ -238,9 +262,13 @@ XmlRpcRequest.prototype.errorCallback = function (error) {
 	//abbiamo un oggetto del tipo AjaxException
 	EW.LogSystem.error("XmlRpcRequest.prototype.errorCallback "+error.status+" "+error.statusText);
 	for(var i = 0; i < this.listeners.length; i++) {
-		this.listeners[i].errorCallback( error.status , error.statusText);
+	 	try	{
+	 		this.listeners[i].errorCallback( error.status , error.statusText);
+		} catch(e) {
+			EW.LogSystem.error(e.message);
+		}
     }
-}
+};
 
 /**
  * <p>Execute a synchronous XML-RPC request.</p>
@@ -256,7 +284,8 @@ EW.LogSystem.debug("parameter lenght" + this.params.length);
   }	
   var xml_call = XmlRpc.REQUEST.replace("${METHOD}", this.methodName);	
   xml_call = XmlRpc.PROLOG + xml_call.replace("${DATA}", xml_params); 
-  EW.LogSystem.debug("XMLRPC request: "+xml_call);
+  
+  EW.LogSystem.debug("XMLRPC request: "+xml_call.substring(0,400));
   
   	try
 	{
@@ -281,7 +310,7 @@ XmlRpcRequest.prototype.stop = function(){
     catch (e) {
         EW.LogSystem.debug("errore nello stop della connessione ajax");
     }
-}
+};
 
 /**
  * <p>Marshal request parameters.</p>
@@ -345,8 +374,36 @@ function xmlrpc_encode_entities(data, src_encoding, dest_encoding)
  * @param xml
  * 		Response XML document.
  */
-function XmlRpcResponse(xml) {	
-  this.xmlData = xml;
+function XmlRpcResponse(string) {	
+  var cleaned = XmlRpcResponse.cleanBOM(XmlRpcResponse.cleanDocument(string));
+  this.xmlData = new DOMParser().parseFromString(cleaned, 'text/xml');	
+};
+
+//prevents empty text nodes. and garbage between non-content XML-RPC nodes
+XmlRpcResponse.cleanDocument = function(string){
+	var open, pairs = [
+	                   ['methodResponse', 'params'],
+	                   ['params', 'param'],
+	                   ['param', 'value'],
+	                   ['array', 'data'],
+	                   ['struct', 'member']
+	                   ], open;
+	var values = ['array','string', 'i4', 'int', 'dateTime\\.iso8601', 'double', 'struct'];
+	pairs.push(['value', values.join("|")]);
+	var pair, reg;
+	for (var i=0; i < pairs.length; i++) {
+		pair = pairs[i];
+		open = new RegExp("<" + pair[0] + ">.*?<(" + pair[1] + ")>",'gmi');
+		string = string.replace(open,"<"+pair[0]+"><$1>");
+	};
+
+	return string.replace(/>\n[\s]+\n</g, '><');
+};
+
+//Removes all characters before the opening XLM declaration
+XmlRpcResponse.cleanBOM = function(string){
+	var leading_removed = string.substring(string.indexOf("<"));
+	return leading_removed.replace(/^[^<]{0,}<\?xml([^>]+)>[^<]+<methodResponse/, "<?xml version=\"1.0\" ?>\n<methodResponse");
 };
 
 /** 
@@ -376,7 +433,7 @@ XmlRpcResponse.prototype.parseXML = function() {
   	throw{
 	 	name: "Malformed Blog Response",
 	 	message: err.message
-	}
+	};
   }
   EW.LogSystem.debug(" <<< parseXML");
   return this.params[0];
@@ -507,6 +564,13 @@ function Base64(value) {
   Base64.prototype.bytes = value;
 };
 
+/* When you pass as pass as parameter an already base64 encoded object */
+function Base64(value, alreadyEncoded) {	
+  Base64.prototype.alreadyEncoded = true;
+  Base64.prototype.bytes = value;
+};
+
+
 /** <p>Base64 characters map.</p> */
 Base64.CHAR_MAP = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
 
@@ -516,6 +580,11 @@ Base64.CHAR_MAP = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012345678
 *		Encoded string.
 */
 Base64.prototype.encode = function() {
+	
+  if( this.alreadyEncoded === true ) {
+	EW.LogSystem.debug("Data already encoded. Do not re-encode the media file."); 
+	return this.bytes;
+  }	
   if(typeof btoa == "function")
     this.bytes = btoa(this.bytes);
   else {

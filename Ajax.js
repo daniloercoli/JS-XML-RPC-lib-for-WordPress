@@ -172,7 +172,7 @@ Opera.Net.Ajax = function() {
 		}
 		if(httpmethod == "POST") {
 			http_request.setRequestHeader("Method", "POST " + url + " HTTP/1.1");
-			http_request.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+			http_request.setRequestHeader('Content-Type', 'text/xml');
 			http_request.setRequestHeader('Content-Length', senddata.length);			
 		}
 		try {
