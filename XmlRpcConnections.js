@@ -26,12 +26,12 @@ XmlRpcBaseConn.prototype.clearListeners = function() {
 XmlRpcBaseConn.prototype.startConn = function () {
 	EW.LogSystem.debug(">>> XmlRpcBaseConn.prototype.startConn");
 	this.execute();
-}
+};
 
 /* this is an abstract method, each inhereted conn must reimplements it*/
 XmlRpcBaseConn.prototype.execute = function () {
 	EW.LogSystem.debug(">>> XmlRpcBaseConn.prototype.excute");
-}
+};
 
 XmlRpcBaseConn.prototype.stopConn = function () {
 	EW.LogSystem.debug(">>> XmlRpcBaseConn.prototype.stopConn");
@@ -40,7 +40,7 @@ XmlRpcBaseConn.prototype.stopConn = function () {
 		this.request.stop();
 	}
 	this.stopCallback();
-}
+};
 
 /**
  * Chiamato quando la connessione viene stoppata dall'utente. Notifichiamo tutti i listener in ascolto.
@@ -51,14 +51,18 @@ XmlRpcBaseConn.prototype.stopCallback = function () {
 	for(var i = 0; i < this.listeners.length; i++) {
 		this.listeners[i].connRequestStopped();
     }
-}
+};
 
 /**
  * Chiamato quando il server xmlrpc risponde correttamente
- * ogni connessione deve ridefinire questo metodo per trattare la risposta correttamente.
  */
 XmlRpcBaseConn.prototype.successCallback = function (xmlRpcResponseObj, jsParsedObj) {
-}
+	if(this.isStopped == true) return; //se è stata stoppata non fare nulla
+	EW.LogSystem.debug("XmlRpcBaseConn.prototype.successCallback");
+	for(var i = 0; i < this.listeners.length; i++) {
+		this.listeners[i].connRequestCompleted(jsParsedObj);
+    }	
+};
 
 /**
  * Chiamato nel caso di errore
@@ -70,17 +74,17 @@ XmlRpcBaseConn.prototype.errorCallback = function (faultCode, faultString) {
 	errorObj = {
 	 	name: faultCode,
 	 	message: faultString
-	}
+	};
 
 	if("undefined" == typeof faultCode) {
-		errorObj.name ="0"
+		errorObj.name ="0";
 		errorObj.message = "Server did not return any results.";
 	}
 	
 	for(var i = 0; i < this.listeners.length; i++) {
-		this.listeners[i].connRequestError(errorObj); //ai listener arriva un oggetto JS
+		this.listeners[i].connRequestError(errorObj); 
     }		
-}
+};
 
 
 function AddBlogConn(_username, _password, _url) {
@@ -105,27 +109,28 @@ AddBlogConn.prototype.execute = function () {
 	} catch (err) {
 		EW.Utils.showErrorDialog ("Error", err);
 	}
-}
+};
 
 /**
  * Chiamato nel caso di errore nell'aggiunta di un blog
  */
 AddBlogConn.prototype.errorCallback = function (faultCode, faultString) {
 	if(this.isStopped == true) return; //se è stata stoppata non fare nulla
-	
+
 	EW.LogSystem.error("AddBlogConn.prototype.errorCallback");
-	
-	var _errMessage = ""; 
+
+	errorObj = {
+			name: faultCode,
+			message: faultString
+	};
 	if("undefined" == typeof faultCode) {
-		_errMessage = "Server did not return any results. Make sure that the blog url is correct. Remove the www incase you are using it. <br /> <br /> <strong>TIP</strong>: You can go back and change the url.";
-	} else {
-		_errMessage = faultCode +" - "+ faultString; 
+		errorObj.name ="0";
+		errorObj.message = "Server did not return any results. Make sure that the blog url is correct. Remove the www incase you are using it. <br /> <br /> <strong>TIP</strong>: You can go back and change the url.";
 	}
-	
 	for(var i = 0; i < this.listeners.length; i++) {
-		this.listeners[i].connRequestError(_errMessage); //ai listener arriva un oggetto JS
-    }		
-}
+		this.listeners[i].connRequestError(errorObj); 
+	}		
+};
 
 AddBlogConn.prototype.successCallback = function (xmlRpcResponseObj, jsParsedObj) {
 	if(this.isStopped == true) return; //se è stata stoppata non fare nulla
@@ -150,8 +155,71 @@ AddBlogConn.prototype.successCallback = function (xmlRpcResponseObj, jsParsedObj
 	for(var i = 0; i < this.listeners.length; i++) {
 		this.listeners[i].connRequestCompleted(jsParsedObj); //ai listener arriva un oggetto JS
     }		
+};
+
+
+/**
+ * New Post Connection
+ */
+function NewPost(_username, _password, _url, _content) {
+	this.base = XmlRpcBaseConn;
+	this.base(_username, _password, _url);
+	this.content = _content;
+	/*
+	 * The struct content can contain the following standard keys:
+    * title, for the title of the entry;
+    * description, for the body of the entry;
+    * dateCreated, to set the created-on date of the entry;
+	 */
+}
+NewPost.prototype =  new XmlRpcBaseConn;
+NewPost.prototype.execute = function () {
+	EW.LogSystem.debug("metaWeblog.newPost");
+	try {
+		var method = "metaWeblog.newPost";
+		var request = new XmlRpcRequest(this.url, method);
+		request.addParam("1");
+		request.addParam(this.username);
+		request.addParam(this.password);
+		request.addParam(this.content);
+		request.addParam(true);
+		request.addListener(this);
+		request.send();
+	} catch (err) {
+		EW.Utils.showErrorDialog ("Error", err);
+	}
+};
+
+
+/**
+ * New Media Connection
+ */
+function NewMedia(_username, _password, _url, _content) {
+	this.base = XmlRpcBaseConn;
+	this.base(_username, _password, _url);
+	this.content = _content;
 }
 
+NewMedia.prototype =  new XmlRpcBaseConn;
+NewMedia.prototype.execute = function () {
+	try {
+		var method = "metaWeblog.newMediaObject";
+		var request = new XmlRpcRequest(this.url, method);
+		request.addParam("1");
+		request.addParam(this.username);
+		request.addParam(this.password);
+		request.addParam(this.content);
+		request.addListener(this);
+		request.send();
+	} catch (err) {
+		EW.Utils.showErrorDialog ("Error", err);
+	}
+};
+
+
+/**
+ * Get Comments Connection
+ */
 function GetCommentsConn(_username, _password, _url) {
 	this.base = XmlRpcBaseConn;
 	this.base(_username, _password, _url);
@@ -160,17 +228,13 @@ function GetCommentsConn(_username, _password, _url) {
 	this.number = 100;
 	this.status = "";
 }
-
 GetCommentsConn.prototype =  new XmlRpcBaseConn;
-
 GetCommentsConn.prototype.setOffset = function (newOffset) {
 	this.offset = newOffset;
-}
-
+};
 GetCommentsConn.prototype.setNumber = function (_number) {
 	this.number = _number;
-}
-
+};
 GetCommentsConn.prototype.execute = function () {
 	EW.LogSystem.debug("wp.getComments ");
 	try {
@@ -184,7 +248,7 @@ GetCommentsConn.prototype.execute = function () {
 			 status : this.status,
 			 offset : this.offset,
 			 number : this.number 
-		}
+		};
 
 		request.addParam(options);
 		request.addListener(this);
@@ -192,28 +256,17 @@ GetCommentsConn.prototype.execute = function () {
 	} catch (err) {
 		EW.Utils.showErrorDialog ("Error", err);
 	}
-}
-
-GetCommentsConn.prototype.successCallback = function (xmlRpcResponseObj, jsParsedObj) {
-	if(this.isStopped == true) return; //se � stata stoppata non fare nulla
-	EW.LogSystem.debug("getComments.successCallback"); 
-	for(var x=0; x < jsParsedObj.length; x++)
-	{
-		
-	}
-	for(var i = 0; i < this.listeners.length; i++) {
-		this.listeners[i].connRequestCompleted(jsParsedObj); //ai listener arriva un oggetto JS
-    }		
-}
+};
 
 
-
+/**
+ * Get Comments Count Connection
+ */
 function GetCommentCount(_username, _password, _url) {
 	this.base = XmlRpcBaseConn;
 	this.base(_username, _password, _url);
 	this.post_id = -1;
-}
-
+};
 GetCommentCount.prototype =  new XmlRpcBaseConn;
 GetCommentCount.prototype.execute = function () {
 	EW.LogSystem.debug("wp.getComments");
@@ -229,28 +282,17 @@ GetCommentCount.prototype.execute = function () {
 	} catch (err) {
 		EW.Utils.showErrorDialog ("Error", err);
 	}
-}
-
-GetCommentCount.prototype.successCallback = function (xmlRpcResponseObj, jsParsedObj) {
-	if(this.isStopped == true) return; //se � stata stoppata non fare nulla
-	EW.LogSystem.debug("GetCommentCount.successCallback"); 
-	
-	for(var i = 0; i < this.listeners.length; i++) {
-		this.listeners[i].connRequestCompleted(jsParsedObj); //ai listener arriva un oggetto JS
-    }		
-}
+};
 
 
 /**
  * Delete Comment Connection
  */
-
 function DeleteComment(_username, _password, _url, commentID) {
 	this.base = XmlRpcBaseConn;
 	this.base(_username, _password, _url);
 	this.commentID = commentID;
-}
-
+};
 DeleteComment.prototype =  new XmlRpcBaseConn;
 DeleteComment.prototype.execute = function () {
 	EW.LogSystem.debug("wp.deleteComment");
@@ -266,28 +308,16 @@ DeleteComment.prototype.execute = function () {
 	} catch (err) {
 		EW.Utils.showErrorDialog ("Error", err);
 	}
-}
-
-DeleteComment.prototype.successCallback = function (xmlRpcResponseObj, jsParsedObj) {
-	if(this.isStopped == true) return; //se è stata stoppata non fare nulla
-	EW.LogSystem.debug("DeleteComment.successCallback"); 
-	
-	for(var i = 0; i < this.listeners.length; i++) {
-		this.listeners[i].connRequestCompleted(jsParsedObj); //ai listener arriva un oggetto JS
-    }		
-}
-
+};
 
 /**
  * Edit Comment Connection
  */
-
 function EditComment(_username, _password, _url, comment) {
 	this.base = XmlRpcBaseConn;
 	this.base(_username, _password, _url);
 	this.comment = comment;
-}
-
+};
 EditComment.prototype =  new XmlRpcBaseConn;
 EditComment.prototype.execute = function () {
 	EW.LogSystem.debug("wp.editComment");
@@ -304,31 +334,18 @@ EditComment.prototype.execute = function () {
 	} catch (err) {
 		EW.Utils.showErrorDialog ("Error", err);
 	}
-}
-
-EditComment.prototype.successCallback = function (xmlRpcResponseObj, jsParsedObj) {
-	if(this.isStopped == true) return; //se è stata stoppata non fare nulla
-	EW.LogSystem.debug("EditComment.successCallback"); 
-	
-	for(var i = 0; i < this.listeners.length; i++) {
-		this.listeners[i].connRequestCompleted(jsParsedObj); //ai listener arriva un oggetto JS
-    }		
-}
-
-
+};
 
 
 /**
- * Edit Comment Connection
+ * Reply to Comment Connection
  */
-
 function ReplyComment(_username, _password, _url, _post_id, _comment_reply) {
 	this.base = XmlRpcBaseConn;
 	this.base(_username, _password, _url);
 	this.post_id = _post_id;
 	this.comment_reply = _comment_reply;
-}
-
+};
 ReplyComment.prototype =  new XmlRpcBaseConn;
 ReplyComment.prototype.execute = function () {
 	EW.LogSystem.debug("wp.newComment ");
@@ -345,29 +362,17 @@ ReplyComment.prototype.execute = function () {
 	} catch (error_obj) {
 		EW.Utils.showErrorDialog ("Error", error_obj);
 	}
-}
-
-ReplyComment.prototype.successCallback = function (xmlRpcResponseObj, jsParsedObj) {
-	if(this.isStopped == true) return; //se è stata stoppata non fare nulla
-	EW.LogSystem.debug("ReplyComment.successCallback"); 
-	
-	for(var i = 0; i < this.listeners.length; i++) {
-		this.listeners[i].connRequestCompleted(jsParsedObj); //ai listener arriva un oggetto JS
-    }		
-}
-
+};
 
 
 /**
  * Get Comment Connection
  */
-
 function GetComment(_username, _password, _url, _comment_id) {
 	this.base = XmlRpcBaseConn;
 	this.base(_username, _password, _url);
 	this.comment_id = _comment_id;
-}
-
+};
 GetComment.prototype =  new XmlRpcBaseConn;
 GetComment.prototype.execute = function () {
 	EW.LogSystem.debug("wp.getComment ");
@@ -383,56 +388,4 @@ GetComment.prototype.execute = function () {
 	} catch (err) {
 		EW.Utils.showErrorDialog ("Error", err);
 	}
-}
-
-GetComment.prototype.successCallback = function (xmlRpcResponseObj, jsParsedObj) {
-	if(this.isStopped == true) return; //se è stata stoppata non fare nulla
-	EW.LogSystem.debug("GetComment.successCallback"); 
-	
-	for(var i = 0; i < this.listeners.length; i++) {
-		this.listeners[i].connRequestCompleted(jsParsedObj); //ai listener arriva un oggetto JS
-    }		
-}
-
-/**
- * New Post Connection
- */
-
-function NewPost(_username, _password, _url, _content) {
-	this.base = XmlRpcBaseConn;
-	this.base(_username, _password, _url);
-	this.content = _content;
-	/*
-	 * The struct content can contain the following standard keys:
-    * title, for the title of the entry;
-    * description, for the body of the entry;
-    * dateCreated, to set the created-on date of the entry;
-	 */
-}
-
-NewPost.prototype =  new XmlRpcBaseConn;
-NewPost.prototype.execute = function () {
-	EW.LogSystem.debug("wp.getComment ");
-	try {
-		var method = "metaWeblog.newPost";
-		var request = new XmlRpcRequest(this.url, method);
-		request.addParam("1");
-		request.addParam(this.username);
-		request.addParam(this.password);
-		request.addParam(this.content);
-		request.addParam(true);
-		request.addListener(this);
-		request.send();
-	} catch (err) {
-		EW.Utils.showErrorDialog ("Error", err);
-	}
-}
-
-NewPost.prototype.successCallback = function (xmlRpcResponseObj, jsParsedObj) {
-	if(this.isStopped == true) return; //se è stata stoppata non fare nulla
-	EW.LogSystem.debug("NewPost.successCallback"); 
-	
-	for(var i = 0; i < this.listeners.length; i++) {
-		this.listeners[i].connRequestCompleted(jsParsedObj); //ai listener arriva un oggetto JS
-    }		
-}
+};

@@ -215,16 +215,15 @@ XmlRpcRequest.prototype.successCallback = function(xmlhttp) {
 		var resp = new XmlRpcResponse(xmlhttp.responseText);
 		var respoObj = resp.parseXML();
 		EW.LogSystem.debug(respoObj);
-		//EW.LogSystem.debug("Response JS: " +respoObj.toSource()); 
 		
 		//se si è verificato un errore nello strato xmlrpc (errore riportato dal server WP)
 		if(resp.isFault()) {
-			EW.LogSystem.error("XmlRpcRequest.prototype.successCallback - XMLRPC Error");
+			EW.LogSystem.error("XmlRpcRequest.prototype.successCallback - XMLRPC response isFault");
 			var faultCode = respoObj.faultCode;
 			var faultString = respoObj.faultString;
 			for(var i = 0; i < this.listeners.length; i++) {
 			 	try {
-			 		this.listeners[i].errorCallback(faultCode, faultString); //ai listener arriva un oggetto JS
+			 		this.listeners[i].errorCallback(faultCode, faultString);
 				} catch(e) {
 					EW.LogSystem.error(e.message);
 				}
