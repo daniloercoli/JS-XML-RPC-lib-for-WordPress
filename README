@@ -13,8 +13,8 @@ wp.getComment
 wp.getComments
 wp.getPage
 wp.getOptions
+wp.getPosts
 metaWeblog.newPost
-
 
 How to use it:
 

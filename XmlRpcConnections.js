@@ -389,3 +389,40 @@ GetComment.prototype.execute = function () {
 		EW.Utils.showErrorDialog ("Error", err);
 	}
 };
+
+
+/**
+ * Get Posts Connection
+ */
+function GetPostsConn(_username, _password, _url) {
+	this.base = XmlRpcBaseConn;
+	this.base(_username, _password, _url);
+	this.offset = 0;
+	this.number = 10;
+}
+GetPostsConn.prototype =  new XmlRpcBaseConn;
+GetPostsConn.prototype.setOffset = function (newOffset) {
+	this.offset = newOffset;
+};
+GetPostsConn.prototype.setNumber = function (_number) {
+	this.number = _number;
+};
+GetPostsConn.prototype.execute = function () {
+	EW.LogSystem.debug("wp.getPosts");
+	try {
+		var method = "wp.getPosts";
+		var request = new XmlRpcRequest(this.url, method);
+		request.addParam("1");
+		request.addParam(this.username);
+		request.addParam(this.password);
+		var filter = {
+			 offset : this.offset,
+			 number : this.number 
+		};
+		request.addParam(filter);
+		request.addListener(this);
+		request.send();
+	} catch (err) {
+		EW.Utils.showErrorDialog ("Error", err);
+	}
+};
