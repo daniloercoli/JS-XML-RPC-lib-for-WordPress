@@ -54,7 +54,7 @@ XmlRpcBaseConn.prototype.stopCallback = function () {
 };
 
 /**
- * Chiamato quando il server xmlrpc risponde correttamente
+ * Called when the server responds correctly xmlrpc
  */
 XmlRpcBaseConn.prototype.successCallback = function (xmlRpcResponseObj, jsParsedObj) {
 	if(this.isStopped == true) return; //se è stata stoppata non fare nulla
@@ -65,7 +65,7 @@ XmlRpcBaseConn.prototype.successCallback = function (xmlRpcResponseObj, jsParsed
 };
 
 /**
- * Chiamato nel caso di errore
+ * Called in case of error
  */
 XmlRpcBaseConn.prototype.errorCallback = function (faultCode, faultString) {
 	if(this.isStopped == true) return; //se è stata stoppata non fare nulla
@@ -112,7 +112,7 @@ AddBlogConn.prototype.execute = function () {
 };
 
 /**
- * Chiamato nel caso di errore nell'aggiunta di un blog
+ * Called in case of error in the addition of a blog
  */
 AddBlogConn.prototype.errorCallback = function (faultCode, faultString) {
 	if(this.isStopped == true) return; //se è stata stoppata non fare nulla
