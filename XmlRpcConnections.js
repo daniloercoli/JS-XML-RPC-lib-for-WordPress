@@ -426,3 +426,43 @@ GetPostsConn.prototype.execute = function () {
 		EW.Utils.showErrorDialog ("Error", err);
 	}
 };
+
+//New category. See http://codex.wordpress.org/XML-RPC_WordPress_API/Categories_%26_Tags
+function NewCategoryConn(_username, _password, _url, _categoryName) {
+	this.base = XmlRpcBaseConn;
+	this.base(_username, _password, _url);
+	this.categoryName = _categoryName;
+	this.description = null;
+	this.parent_id = null;
+}
+NewCategoryConn.prototype =  new XmlRpcBaseConn;
+NewCategoryConn.prototype.setParentCategory = function (_parent_id) {
+	this.parent_id = _parent_id;
+};
+NewCategoryConn.prototype.setDescription = function (_desc) {
+	this.description = _desc;
+};
+NewCategoryConn.prototype.execute = function () {
+	EW.LogSystem.debug("wp.newCategory");
+	try {
+		var method = "wp.newCategory";
+		var request = new XmlRpcRequest(this.url, method);
+		request.addParam("1");
+		request.addParam(this.username);
+		request.addParam(this.password);
+		var category = {
+				name : this.categoryName
+		};
+		//set optional parameters
+		if ( this.description !== null )
+			category.description = this.description;
+		if ( this.parent_id !== null )
+			category.parent_id = this.parent_id;
+		
+		request.addParam(category);
+		request.addListener(this);
+		request.send();
+	} catch (err) {
+		EW.Utils.showErrorDialog ("Error", err);
+	}
+};
